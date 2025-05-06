@@ -23,12 +23,9 @@ Triển khai hạ tầng AWS bao gồm:
 | EC2 Public | VM public, SSH trực tiếp |
 | EC2 Private | VM private, SSH qua jump |
 
-## 🛠️ Giải thích các đoạn code chính
-
-### 1️⃣ Tạo VPC
-
-```yaml
-VPC:
-  Type: AWS::EC2::VPC
-  Properties:
-    CidrBlock: 10.0.0.0/16
+## Triển khai
+```bash
+aws cloudformation create-stack \
+  --stack-name devops-vpc-stack \
+  --template-body file://template.yaml \
+  --parameters ParameterKey=KeyName,ParameterValue=ten-keypair-cua-ban
