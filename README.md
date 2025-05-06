@@ -4,9 +4,6 @@
 
 Dự án này sử dụng AWS CloudFormation để tự động triển khai một môi trường AWS bao gồm VPC, Subnet, Internet Gateway, NAT Gateway, Security Group và EC2 instance. Kiến trúc được thiết kế với một subnet public và một subnet private theo mô hình bảo mật tốt nhất.
 
-## Kiến trúc
-
-![Kiến trúc](https://i.imgur.com/placeholder-architecture.png)
 
 ### Các thành phần chính:
 
