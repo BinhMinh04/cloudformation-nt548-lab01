@@ -1,19 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'NT548 - Bài tập thực hành 01: Triển khai VPC, EC2 với CloudFormation'
+Description: 'NT548 - Lab 01: Deploy VPC, EC2 with CloudFormation'
 
 Parameters:
   KeyName:
-    Description: 'Tên key pair EC2'
+    Description: 'Key pair name for EC2 instances'
     Type: 'AWS::EC2::KeyPair::KeyName'
     Default: 'cloudformation-lab01'  #Key_Name
 
   MyIP:
-    Description: 'IP public của bạn'
+    Description: 'Your IP public'
     Type: String
     Default: '125.235.239.47/32'
 
   LatestAmiId:
-    Description: 'AMI ID cho EC2 instances (Amazon Linux 2)'
+    Description: 'AMI ID for EC2 instances (Amazon Linux 2)'
     Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
@@ -132,7 +132,7 @@ Resources:
   PublicEC2SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: 'Cho phép SSH từ IP của bạn'
+      GroupDescription: 'Allow SSH from your IP'
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -146,7 +146,7 @@ Resources:
   PrivateEC2SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: 'Cho phép SSH từ Public EC2'
+      GroupDescription: 'Allow SSH from Public to EC2'
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
@@ -191,8 +191,8 @@ Resources:
 
 Outputs:
   PublicEC2PublicIP:
-    Description: 'Public IP của EC2 instance trong Public Subnet'
+    Description: 'EC2 Public IP in Public Subnet'
     Value: !GetAtt PublicEC2Instance.PublicIp
   PrivateEC2PrivateIP:
-    Description: 'Private IP của EC2 instance trong Private Subnet'
+    Description: 'EC2 Private IP in Private Subnet'
     Value: !GetAtt PrivateEC2Instance.PrivateIp
