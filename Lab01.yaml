@@ -1,194 +1,198 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'Triển khai VPC, Subnets, NAT GW, Route Tables, EC2 Instances Public & Private'
+Description: 'NT548 - Bài tập thực hành 01: Triển khai VPC, EC2 với CloudFormation'
 
 Parameters:
-  InstanceType:
-    Description: EC2 instance type
+  KeyName:
+    Description: 'Tên key pair EC2'
+    Type: 'AWS::EC2::KeyPair::KeyName'
+    Default: 'cloudformation-lab01'  #Key_Name
+
+  MyIP:
+    Description: 'IP public của bạn'
     Type: String
-    Default: t2.micro
-    AllowedValues:
-      - t2.micro
-      - t2.small
-      - t3.micro
-    ConstraintDescription: must be a valid EC2 instance type.
+    Default: '125.235.239.47/32'
+
+  LatestAmiId:
+    Description: 'AMI ID cho EC2 instances (Amazon Linux 2)'
+    Type: 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Default: '/aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-gp2'
 
 Resources:
-
-  # VPC
+  # 1. VPC
   MyVPC:
-    Type: AWS::EC2::VPC
+    Type: 'AWS::EC2::VPC'
     Properties:
-      CidrBlock: 10.0.0.0/16
+      CidrBlock: '10.0.0.0/16'
       EnableDnsSupport: true
       EnableDnsHostnames: true
       Tags:
         - Key: Name
-          Value: MyVPC
+          Value: 'NT548-VPC'
 
-  # Internet Gateway
+  # 2. Internet Gateway
   MyInternetGateway:
-    Type: AWS::EC2::InternetGateway
+    Type: 'AWS::EC2::InternetGateway'
     Properties:
       Tags:
         - Key: Name
-          Value: MyInternetGateway
+          Value: 'NT548-IGW'
 
+  # 3. Gắn Internet Gateway vào VPC
   AttachGateway:
-    Type: AWS::EC2::VPCGatewayAttachment
+    Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
       VpcId: !Ref MyVPC
       InternetGatewayId: !Ref MyInternetGateway
 
-  # Public Subnet
+  # 4. Public Subnet
   PublicSubnet:
-    Type: AWS::EC2::Subnet
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref MyVPC
-      CidrBlock: 10.0.1.0/24
+      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: !Select [0, !GetAZs '']
       MapPublicIpOnLaunch: true
-      AvailabilityZone: !Select [0, !GetAZs '']
       Tags:
         - Key: Name
-          Value: PublicSubnet
+          Value: 'NT548-PublicSubnet'
 
-  # Private Subnet
+  # 5. Private Subnet
   PrivateSubnet:
-    Type: AWS::EC2::Subnet
+    Type: 'AWS::EC2::Subnet'
     Properties:
       VpcId: !Ref MyVPC
-      CidrBlock: 10.0.2.0/24
-      MapPublicIpOnLaunch: false
-      AvailabilityZone: !Select [0, !GetAZs '']
+      CidrBlock: '10.0.2.0/24'
+      AvailabilityZone: !Select [1, !GetAZs '']
       Tags:
         - Key: Name
-          Value: PrivateSubnet
+          Value: 'NT548-PrivateSubnet'
 
-  # Elastic IP cho NAT Gateway
-  NatEIP:
-    Type: AWS::EC2::EIP
+  # 6. NAT Gateway (đặt trong Public Subnet)
+  NatGatewayEIP:
+    Type: 'AWS::EC2::EIP'
     Properties:
       Domain: vpc
 
-  # NAT Gateway
   NatGateway:
-    Type: AWS::EC2::NatGateway
+    Type: 'AWS::EC2::NatGateway'
     Properties:
-      AllocationId: !GetAtt NatEIP.AllocationId
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
       SubnetId: !Ref PublicSubnet
       Tags:
         - Key: Name
-          Value: NatGateway
+          Value: 'NT548-NAT-GW'
 
-  # Route Table Public
+  # 7. Route Tables
   PublicRouteTable:
-    Type: AWS::EC2::RouteTable
+    Type: 'AWS::EC2::RouteTable'
     Properties:
       VpcId: !Ref MyVPC
       Tags:
         - Key: Name
-          Value: PublicRouteTable
+          Value: 'NT548-Public-RT'
 
+  PrivateRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MyVPC
+      Tags:
+        - Key: Name
+          Value: 'NT548-Private-RT'
+
+  # 8. Routes
   PublicRoute:
-    Type: AWS::EC2::Route
+    Type: 'AWS::EC2::Route'
     DependsOn: AttachGateway
     Properties:
       RouteTableId: !Ref PublicRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
+      DestinationCidrBlock: '0.0.0.0/0'
       GatewayId: !Ref MyInternetGateway
 
+  PrivateRoute:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NatGateway
+
+  # 9. Route Table Associations
   PublicSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref PublicSubnet
       RouteTableId: !Ref PublicRouteTable
 
-  # Route Table Private
-  PrivateRouteTable:
-    Type: AWS::EC2::RouteTable
-    Properties:
-      VpcId: !Ref MyVPC
-      Tags:
-        - Key: Name
-          Value: PrivateRouteTable
-
-  PrivateRoute:
-    Type: AWS::EC2::Route
-    Properties:
-      RouteTableId: !Ref PrivateRouteTable
-      DestinationCidrBlock: 0.0.0.0/0
-      NatGatewayId: !Ref NatGateway
-
   PrivateSubnetRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref PrivateSubnet
       RouteTableId: !Ref PrivateRouteTable
 
-  # Security Group Public EC2
-  PublicInstanceSG:
-    Type: AWS::EC2::SecurityGroup
+  # 10. Security Groups
+  PublicEC2SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: Allow SSH from anywhere
+      GroupDescription: 'Cho phép SSH từ IP của bạn'
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 0.0.0.0/0
+          CidrIp: !Ref MyIP
+      Tags:
+        - Key: Name
+          Value: 'NT548-Public-SG'
 
-  # Security Group Private EC2
-  PrivateInstanceSG:
-    Type: AWS::EC2::SecurityGroup
+  PrivateEC2SecurityGroup:
+    Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: Allow SSH from Public EC2 only
+      GroupDescription: 'Cho phép SSH từ Public EC2'
       VpcId: !Ref MyVPC
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          SourceSecurityGroupId: !Ref PublicInstanceSG
-
-  # Public EC2 Instance
-  PublicEC2:
-    Type: AWS::EC2::Instance
-    Properties:
-      InstanceType: !Ref InstanceType
-      KeyName: cloudformation-lab01
-      ImageId: ami-0f88e80871fd81e91
-      SubnetId: !Ref PublicSubnet
-      SecurityGroupIds:
-        - !Ref PublicInstanceSG
+          SourceSecurityGroupId: !Ref PublicEC2SecurityGroup
       Tags:
         - Key: Name
-          Value: PublicEC2
+          Value: 'NT548-Private-SG'
 
-  # Private EC2 Instance
-  PrivateEC2:
-    Type: AWS::EC2::Instance
+  # 11. EC2 Instances
+  PublicEC2Instance:
+    Type: 'AWS::EC2::Instance'
     Properties:
-      InstanceType: !Ref InstanceType
-      KeyName: cloudformation-lab01
-      ImageId: ami-0f88e80871fd81e91
-      SubnetId: !Ref PrivateSubnet
-      SecurityGroupIds:
-        - !Ref PrivateInstanceSG
+      InstanceType: t2.micro
+      ImageId: !Ref LatestAmiId  # Sử dụng tham số AMI ID
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref PublicSubnet
+          GroupSet:
+            - !Ref PublicEC2SecurityGroup
+          AssociatePublicIpAddress: true
       Tags:
         - Key: Name
-          Value: PrivateEC2
+          Value: 'NT548-Public-EC2'
+
+  PrivateEC2Instance:
+    Type: 'AWS::EC2::Instance'
+    Properties:
+      InstanceType: t2.micro
+      ImageId: !Ref LatestAmiId  # Sử dụng tham số AMI ID
+      KeyName: !Ref KeyName
+      NetworkInterfaces:
+        - DeviceIndex: 0
+          SubnetId: !Ref PrivateSubnet
+          GroupSet:
+            - !Ref PrivateEC2SecurityGroup
+      Tags:
+        - Key: Name
+          Value: 'NT548-Private-EC2'
 
 Outputs:
-  VPCId:
-    Description: VPC Id
-    Value: !Ref MyVPC
-
-  PublicInstanceId:
-    Description: Public EC2 Instance Id
-    Value: !Ref PublicEC2
-
-  PublicInstanceIP:
-    Description: Public EC2 Public IP
-    Value: !GetAtt PublicEC2.PublicIp
-
-  PrivateInstanceId:
-    Description: Private EC2 Instance Id
-    Value: !Ref PrivateEC2
+  PublicEC2PublicIP:
+    Description: 'Public IP của EC2 instance trong Public Subnet'
+    Value: !GetAtt PublicEC2Instance.PublicIp
+  PrivateEC2PrivateIP:
+    Description: 'Private IP của EC2 instance trong Private Subnet'
+    Value: !GetAtt PrivateEC2Instance.PrivateIp
